@@ -3,9 +3,12 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
+  BadGatewayException,
 } from '@nestjs/common';
 import { Observable, catchError } from 'rxjs';
+import { handleDatabaseErrors } from 'src/common/utils/handle-database-error.util';
 import { isPrismaError } from 'src/common/utils/is-prisma-error.util';
+import { DatabaseError } from '../types/databaseError';
 
 @Injectable()
 export class DatabaseInterceptor implements NestInterceptor {
@@ -13,9 +16,11 @@ export class DatabaseInterceptor implements NestInterceptor {
     return next.handle().pipe(
       catchError(error => {
         if (isPrismaError(error)) {
-          throw new Error(error.message);
+          error = handleDatabaseErrors(error);
         }
-        throw error;
+        if (error instanceof DatabaseError) {
+          throw new BadGatewayException(error.message);
+        } else throw error;
       }),
     );
   }
